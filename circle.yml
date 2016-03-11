@@ -1,0 +1,13 @@
+machine:
+    timezone:
+        Asia/Tokyo
+    environment:
+        PROJECT_HOME: "$HOME/$CIRCLE_PROJECT_REPONAME"
+        GOPATH: "$HOME/.go_workspace"
+
+dependencies:
+    pre:
+        - go get github.com/russross/blackfriday
+test:
+    override:
+        - cd $PROJECT_HOME && go test -v
