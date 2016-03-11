@@ -1,5 +1,7 @@
 # Gwiki
 
+[![Circle CI](https://circleci.com/gh/mahata/gwiki.svg?style=svg)](https://circleci.com/gh/mahata/gwiki)
+
 Markdown Wiki implementation in Go.
 
 ## Disclaimer
