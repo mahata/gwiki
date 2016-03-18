@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="ja">
 
 <head>
@@ -14,7 +15,12 @@
 
 <h1>{{.Title}}</h1>
 
+
+{{if .Login}}
+
 <p>[<a href="/edit/{{.Title}}">edit</a>]</p>
+
+{{end}}
 
 <div>
 {{printf "%s" .Body}}

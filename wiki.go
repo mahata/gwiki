@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,21 +16,28 @@ import (
 )
 
 type Config struct {
-	DataDir string `json:"dataDir"`
+	DataDir  string `json:"dataDir"`
+	Password string `json:"password`
 }
 
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
+var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html"))
+var validPath = regexp.MustCompile("^/(login|edit|save|view)/([a-zA-Z0-9]+)$")
 var config Config
 
 type Page struct {
 	Title string
 	Body  []byte
+	Login bool
 }
 
 func isExist(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+func toHash(password string) string {
+	converted := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(converted[:])
 }
 
 func (p *Page) save() error {
@@ -72,6 +81,7 @@ func main() {
 	loadConf("config.json")
 
 	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
@@ -89,6 +99,29 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "view", p)
 }
 
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		p := &Page{
+			Title: "Login Page",
+			Body:  []byte("Login:"),
+		}
+		renderTemplate(w, "login", p)
+	} else {
+		if r.PostFormValue("password") == config.Password {
+			cookie := http.Cookie{
+				Name:     "login",
+				Value:    toHash(config.Password),
+				HttpOnly: true,
+				Expires:  time.Now().AddDate(0, 0, 1),
+			}
+			http.SetCookie(w, &cookie)
+			http.Redirect(w, r, "/", http.StatusFound)
+		} else {
+			http.Error(w, "Login password doesn't match", http.StatusForbidden)
+		}
+	}
+}
+
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
@@ -102,6 +135,14 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
+
+	cookie, err := r.Cookie("login")
+	if err != nil {
+		p.Login = false
+	} else {
+		p.Login = cookie.Value == toHash(config.Password)
+	}
+
 	p.Body = blackfriday.MarkdownCommon([]byte(p.Body))
 	renderTemplate(w, "view", p)
 }
@@ -109,8 +150,17 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(title)
 	if err != nil {
-		p = &Page{Title: title}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err)
 	}
+
+	cookie, err := r.Cookie("login")
+	if err != nil {
+		p.Login = false
+	} else {
+		p.Login = cookie.Value == toHash(config.Password)
+	}
+
 	renderTemplate(w, "edit", p)
 }
 
