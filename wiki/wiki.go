@@ -1,4 +1,4 @@
-package main
+package wiki
 
 import (
 	"crypto/sha256"
@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/http/fcgi"
 	"os"
 	"regexp"
 	"text/template"
@@ -77,7 +79,8 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func main() {
+// func main() {
+func Run(useNginx bool) {
 	loadConf("config.json")
 
 	http.HandleFunc("/", indexHandler)
@@ -86,10 +89,19 @@ func main() {
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
 
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		os.Stderr.WriteString("Failed to copy the HTTP server. Is port 8080 available?")
-		panic(err)
+	if useNginx {
+		listen, err := net.Listen("tcp", "127.0.0.1:8080")
+		if err != nil {
+			os.Stderr.WriteString("Failed to copy the HTTP server. Is port 8080 available?")
+			panic(err)
+		}
+		fcgi.Serve(listen, nil)
+	} else {
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			os.Stderr.WriteString("Failed to copy the HTTP server. Is port 8080 available?")
+			panic(err)
+		}
 	}
 }
 
