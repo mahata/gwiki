@@ -79,7 +79,6 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-// func main() {
 func Run(useNginx bool) {
 	loadConf("config.json")
 
@@ -90,7 +89,7 @@ func Run(useNginx bool) {
 	http.HandleFunc("/save/", makeHandler(saveHandler))
 
 	if useNginx {
-		listen, err := net.Listen("tcp", "127.0.0.1:8080")
+		listen, err := net.Listen("tcp", "0.0.0.0:8080")
 		if err != nil {
 			os.Stderr.WriteString("Failed to copy the HTTP server. Is port 8080 available?")
 			panic(err)
