@@ -1,0 +1,22 @@
+nginx:
+  image: mahata/gwiki-nginx
+  ports:
+    - "80:80"
+    - "443:443"
+  links:
+    - gwiki
+  restart: always
+
+gwiki:
+  image: mahata/gwiki
+  expose:
+    - "8080"
+  ports:
+    - "8080:8080"
+  environment:
+    GOPATH: /root/go-workspace
+  working_dir: /root/go-workspace/src/github.com/mahata/gwiki
+  command: go run main.go -nginx
+  restart: always
+
+
