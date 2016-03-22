@@ -8,6 +8,14 @@ Markdown Wiki implementation in Go.
 
 You shouldn't use this yet. It's still a PoC implementation.
 
+## Install using docker-compose
+
+```
+$ sudo mkdir -p /usr/local/gwiki/data
+$ sudo touch /usr/local/gwiki/data/index.txt
+$ docker-compose up -d
+```
+
 ## Build Docker Image
 
 ```
@@ -15,8 +23,3 @@ $ docker build -t mahata/gwiki .
 $ docker push mahata/gwiki
 ```
 
-## Install using docker-compose
-
-```
-docker-compose up -d
-```

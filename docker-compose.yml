@@ -17,6 +17,6 @@ gwiki:
     GOPATH: /root/go-workspace
   working_dir: /root/go-workspace/src/github.com/mahata/gwiki
   command: go run main.go -nginx
+  volumes:
+    - /usr/local/gwiki/data:/usr/local/gwiki/data
   restart: always
-
-
