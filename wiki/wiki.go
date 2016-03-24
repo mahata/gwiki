@@ -161,8 +161,9 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(title)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err)
+		// Looks like there's no page to edit
+		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.DataDir, title), []byte(""), 0600)
+		p, _ = loadPage(title)
 	}
 
 	cookie, err := r.Cookie("login")
