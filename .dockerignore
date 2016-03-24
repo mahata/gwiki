@@ -1,0 +1,8 @@
+.gitignore
+circle.yml
+config.json.tpl
+LICENSE
+*.md
+
+/docker/*
+/lab/*
