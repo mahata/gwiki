@@ -1,4 +1,5 @@
 {
-  "dataDir": "/tmp",
+  "txtDir": "/tmp",
+  "imgDir": "/tmp",
   "password": "FixMe"
 }

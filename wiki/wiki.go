@@ -19,7 +19,8 @@ import (
 )
 
 type Config struct {
-	DataDir  string `json:"dataDir"`
+	TxtDir   string `json:"txtDir"`
+	ImgDir   string `json:"imgDir`
 	Password string `json:"password`
 }
 
@@ -44,7 +45,7 @@ func toHash(password string) string {
 }
 
 func (p *Page) save() error {
-	archiveDir := config.DataDir + "/" + p.Title
+	archiveDir := config.TxtDir + "/" + p.Title
 	if !isExist(archiveDir) {
 		err := os.Mkdir(archiveDir, 0700)
 		if err != nil {
@@ -72,7 +73,7 @@ func loadConf(confFile string) {
 }
 
 func loadPage(title string) (*Page, error) {
-	filename := config.DataDir + "/" + title + ".txt"
+	filename := config.TxtDir + "/" + title + ".txt"
 	body, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -147,7 +148,8 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		fmt.Fprintf(w, "%v", handler.Header) // To Be Deleted
-		f, err := os.OpenFile("/tmp/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+		// filename := config.ImgDir + "/" + ...
+		f, err := os.OpenFile(fmt.Sprintf("%s/%s", config.ImgDir, handler.Filename), os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			http.Error(w, "Can't create a file handler. Disk full?", http.StatusInternalServerError)
 			return
@@ -190,7 +192,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(title)
 	if err != nil {
 		// Looks like there's no page to edit
-		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.DataDir, title), []byte(""), 0600)
+		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.TxtDir, title), []byte(""), 0600)
 		p, _ = loadPage(title)
 	}
 
