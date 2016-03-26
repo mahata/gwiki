@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -84,6 +85,7 @@ func Run(useNginx bool) {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/upload-file", uploadFileHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
@@ -129,6 +131,32 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", http.StatusFound)
 		} else {
 			http.Error(w, "Login password doesn't match", http.StatusForbidden)
+		}
+	}
+}
+
+func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		http.Error(w, "Upload data have to be passed with POST.", http.StatusBadRequest)
+	} else {
+		r.ParseMultipartForm(32 << 20) // maxMemory
+		file, handler, err := r.FormFile("upload-file")
+		if err != nil {
+			http.Error(w, "upload-file parameter must be passed", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		fmt.Fprintf(w, "%v", handler.Header) // To Be Deleted
+		f, err := os.OpenFile("/tmp/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			http.Error(w, "Can't create a file handler. Disk full?", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		_, err = io.Copy(f, file)
+		if err != nil {
+			http.Error(w, "Can't upload the upload-file. Disk full?", http.StatusInternalServerError)
+			return
 		}
 	}
 }
