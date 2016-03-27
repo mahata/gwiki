@@ -127,7 +127,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				Name:     "login",
 				Value:    toHash(config.Password),
 				HttpOnly: true,
-				Expires:  time.Now().AddDate(0, 0, 1),
+				Expires:  time.Now().AddDate(0, 1, 0),
 			}
 			http.SetCookie(w, &cookie)
 			http.Redirect(w, r, "/", http.StatusFound)
