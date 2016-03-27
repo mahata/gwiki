@@ -25,7 +25,7 @@ type Config struct {
 }
 
 var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html"))
-var validPath = regexp.MustCompile("^/(login|edit|save|view)/([a-zA-Z0-9_-]+)$")
+var validPath = regexp.MustCompile(`^/(edit|save|view|static)/([a-zA-Z0-9_\-\.]+)$`)
 var config Config
 
 type Page struct {
@@ -90,6 +90,7 @@ func Run(useNginx bool) {
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.HandleFunc("/static/", makeHandler(staticHandler))
 
 	if useNginx {
 		listen, err := net.Listen("tcp", "0.0.0.0:8080")
@@ -215,6 +216,16 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 		return
 	}
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+}
+
+func staticHandler(w http.ResponseWriter, r *http.Request, fpath string) {
+	imgPath := config.ImgDir + "/" + fpath
+	_, err := os.Stat(imgPath)
+	if err == nil {
+		http.ServeFile(w, r, config.ImgDir+"/not-found.png") // FixMe: Add this image when installing the app
+	} else {
+		http.ServeFile(w, r, imgPath)
+	}
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
