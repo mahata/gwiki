@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -14,16 +15,20 @@ import (
 	"text/template"
 	"time"
 
+	"errors"
+
+	"github.com/mahata/gwiki/util"
 	"github.com/russross/blackfriday"
 )
 
 type Config struct {
-	DataDir  string `json:"dataDir"`
+	TxtDir   string `json:"txtDir"`
+	ImgDir   string `json:"imgDir`
 	Password string `json:"password`
 }
 
-var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html"))
-var validPath = regexp.MustCompile("^/(login|edit|save|view)/([a-zA-Z0-9_-]+)$")
+var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html", "upload-file.html"))
+var validPath = regexp.MustCompile(`^/(edit|save|view|static)/([a-zA-Z0-9_\-\.]+)$`)
 var config Config
 
 type Page struct {
@@ -43,7 +48,7 @@ func toHash(password string) string {
 }
 
 func (p *Page) save() error {
-	archiveDir := config.DataDir + "/" + p.Title
+	archiveDir := config.TxtDir + "/" + p.Title
 	if !isExist(archiveDir) {
 		err := os.Mkdir(archiveDir, 0700)
 		if err != nil {
@@ -71,7 +76,7 @@ func loadConf(confFile string) {
 }
 
 func loadPage(title string) (*Page, error) {
-	filename := config.DataDir + "/" + title + ".txt"
+	filename := config.TxtDir + "/" + title + ".txt"
 	body, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -84,9 +89,11 @@ func Run(useNginx bool) {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/upload-file", uploadFileHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.HandleFunc("/static/", makeHandler(staticHandler))
 
 	if useNginx {
 		listen, err := net.Listen("tcp", "0.0.0.0:8080")
@@ -123,13 +130,66 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				Name:     "login",
 				Value:    toHash(config.Password),
 				HttpOnly: true,
-				Expires:  time.Now().AddDate(0, 0, 1),
+				Expires:  time.Now().AddDate(0, 1, 0),
 			}
 			http.SetCookie(w, &cookie)
 			http.Redirect(w, r, "/", http.StatusFound)
 		} else {
 			http.Error(w, "Login password doesn't match", http.StatusForbidden)
 		}
+	}
+}
+
+func calcExtension(contentType string) (string, error) {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg", nil
+	case "image/gif":
+		return ".gif", nil
+	case "image/png":
+		return ".png", nil
+	default:
+		return "", errors.New("Only jpeg, gif and png files are allowed for the file upload")
+	}
+}
+
+func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		http.Error(w, "Upload data have to be passed with POST.", http.StatusBadRequest)
+	} else {
+		r.ParseMultipartForm(32 << 20) // maxMemory
+		file, handler, err := r.FormFile("upload-file")
+		if err != nil {
+			http.Error(w, "upload-file parameter must be passed", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		extension, err := calcExtension(handler.Header.Get(("Content-Type")))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		uploadFileName := util.GetRandomString() + extension
+		f, err := os.OpenFile(fmt.Sprintf("%s/%s", config.ImgDir, uploadFileName), os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			http.Error(w, "Can't create a file handler. Disk full?", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		_, err = io.Copy(f, file)
+		if err != nil {
+			http.Error(w, "Can't upload the upload-file. Disk full?", http.StatusInternalServerError)
+			return
+		}
+
+		p := &Page{
+			Title: "File Posted",
+			Body:  []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
+		}
+		renderTemplate(w, "upload-file", p)
 	}
 }
 
@@ -162,7 +222,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(title)
 	if err != nil {
 		// Looks like there's no page to edit
-		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.DataDir, title), []byte(""), 0600)
+		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.TxtDir, title), []byte(""), 0600)
 		p, _ = loadPage(title)
 	}
 
@@ -185,6 +245,16 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 		return
 	}
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+}
+
+func staticHandler(w http.ResponseWriter, r *http.Request, fpath string) {
+	imgPath := config.ImgDir + "/" + fpath
+	_, err := os.Stat(imgPath)
+	if err == nil {
+		http.ServeFile(w, r, imgPath)
+	} else {
+		http.ServeFile(w, r, config.ImgDir+"/not-found.png") // FixMe: Add this image when installing the app
+	}
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
