@@ -27,7 +27,7 @@ type Config struct {
 	Password string `json:"password`
 }
 
-var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html"))
+var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html", "upload-file.html"))
 var validPath = regexp.MustCompile(`^/(edit|save|view|static)/([a-zA-Z0-9_\-\.]+)$`)
 var config Config
 
@@ -185,7 +185,11 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Fprintf(w, fmt.Sprintf("Your file should be available at: /static/%s", uploadFileName))
+		p := &Page{
+			Title: "File Posted",
+			Body:  []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
+		}
+		renderTemplate(w, "upload-file", p)
 	}
 }
 
