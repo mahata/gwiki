@@ -15,6 +15,9 @@ import (
 	"text/template"
 	"time"
 
+	"errors"
+
+	"github.com/mahata/gwiki/util"
 	"github.com/russross/blackfriday"
 )
 
@@ -137,6 +140,19 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func calcExtension(contentType string) (string, error) {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg", nil
+	case "image/gif":
+		return ".gif", nil
+	case "image/png":
+		return ".png", nil
+	default:
+		return "", errors.New("Only jpeg, gif and png files are allowed for the file upload")
+	}
+}
+
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		http.Error(w, "Upload data have to be passed with POST.", http.StatusBadRequest)
@@ -148,19 +164,28 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		fmt.Fprintf(w, "%v", handler.Header) // To Be Deleted
-		// filename := config.ImgDir + "/" + ...
-		f, err := os.OpenFile(fmt.Sprintf("%s/%s", config.ImgDir, handler.Filename), os.O_WRONLY|os.O_CREATE, 0666)
+
+		extension, err := calcExtension(handler.Header.Get(("Content-Type")))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		uploadFileName := util.GetRandomString() + extension
+		f, err := os.OpenFile(fmt.Sprintf("%s/%s", config.ImgDir, uploadFileName), os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			http.Error(w, "Can't create a file handler. Disk full?", http.StatusInternalServerError)
 			return
 		}
 		defer f.Close()
+
 		_, err = io.Copy(f, file)
 		if err != nil {
 			http.Error(w, "Can't upload the upload-file. Disk full?", http.StatusInternalServerError)
 			return
 		}
+
+		fmt.Fprintf(w, fmt.Sprintf("Your file should be available at: /static/%s", uploadFileName))
 	}
 }
 
@@ -222,9 +247,9 @@ func staticHandler(w http.ResponseWriter, r *http.Request, fpath string) {
 	imgPath := config.ImgDir + "/" + fpath
 	_, err := os.Stat(imgPath)
 	if err == nil {
-		http.ServeFile(w, r, config.ImgDir+"/not-found.png") // FixMe: Add this image when installing the app
-	} else {
 		http.ServeFile(w, r, imgPath)
+	} else {
+		http.ServeFile(w, r, config.ImgDir+"/not-found.png") // FixMe: Add this image when installing the app
 	}
 }
 
