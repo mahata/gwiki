@@ -112,9 +112,7 @@ func Run(useNginx bool) {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	p, _ := loadPage("index")
-	p.Body = blackfriday.MarkdownCommon([]byte(p.Body))
-	renderTemplate(w, "view", p)
+	http.Redirect(w, r, "/view/index", http.StatusFound)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
