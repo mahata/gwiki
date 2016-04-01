@@ -28,7 +28,8 @@ type Config struct {
 }
 
 var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html", "upload-file.html"))
-var validPath = regexp.MustCompile(`^/(edit|save|view|static)/([a-zA-Z0-9_\-\.]+)$`)
+
+var validPath = regexp.MustCompile(`^/(edit|save|view|static)/(\S+)$`)
 var config Config
 
 type Page struct {
