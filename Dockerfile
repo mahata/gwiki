@@ -8,5 +8,7 @@ RUN go get github.com/mahata/gwiki
 
 COPY config.json /root/go-workspace/src/github.com/mahata/gwiki/config.json
 
-RUN mkdir -p /usr/local/gwiki/data
-RUN touch /usr/local/gwiki/data/index.txt
+RUN mkdir -p /usr/local/gwiki/data/img
+RUN mkdir -p /usr/local/gwiki/data/txt
+RUN touch /usr/local/gwiki/data/txt/index.txt
+

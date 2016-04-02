@@ -1,5 +1,5 @@
 nginx:
-  image: mahata/gwiki-nginx
+  image: mahata/gwiki-nginx:latest
   ports:
     - "80:80"
     - "443:443"
@@ -8,7 +8,7 @@ nginx:
   restart: always
 
 gwiki:
-  build: .
+  image: mahata/gwiki:0.5
   expose:
     - "8080"
   ports:

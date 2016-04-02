@@ -19,7 +19,7 @@ $ docker-compose up -d
 ## Build Docker Image
 
 ```
-$ docker build -t mahata/gwiki .
-$ docker push mahata/gwiki
+$ docker build -t mahata/gwiki:0.x .
+$ docker push mahata/gwiki:0.x
 ```
 
