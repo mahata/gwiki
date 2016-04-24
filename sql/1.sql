@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS `wiki`;
+CREATE TABLE `wiki` (
+  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+  `title` TEXT NOT NULL,
+  `content` TEXT NOT NULL,
+  `unixtime` BIGINT NOT NULL
+);
+
+DROP TABLE IF EXISTS `wikilog`;
+CREATE TABLE `wikilog` (
+  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+  `wikiid` INTEGER NOT NULL,
+  `title` TEXT NOT NULL,
+  `content` TEXT NOT NULL,
+  `unixtime` BIGINT NOT NULL
+);
