@@ -17,7 +17,10 @@ import (
 
 	"errors"
 
+	"database/sql"
+
 	"github.com/mahata/gwiki/util"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/russross/blackfriday"
 )
 
@@ -36,6 +39,12 @@ type Page struct {
 	Title   string
 	Content []byte
 	Login   bool
+}
+
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func isExist(filename string) bool {
@@ -64,6 +73,17 @@ func (p *Page) save() error {
 	}
 	filePath := archiveDir + ".txt"
 
+	// FixMe: WIP
+	db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	checkErr(err)
+	stmt, err := db.Prepare("INSERT INTO wiki (title, content, unixtime) values(?, ?, ?)")
+	checkErr(err)
+	res, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
+	checkErr(err)
+	id, err := res.LastInsertId()
+	checkErr(err)
+	fmt.Println(id)
+
 	return ioutil.WriteFile(filePath, p.Content, 0600)
 }
 
@@ -82,6 +102,21 @@ func loadPage(title string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	//db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	//checkErr(err)
+	//
+	//rows, err := db.Query("SELECT * FROM wiki")
+	//checkErr(err)
+	//for rows.Next() {
+	//	var id int
+	//	var title string
+	//	var content string
+	//	var unixtime int
+	//	err = rows.Scan(&id, &title, &content, &unixtime)
+	//	fmt.Println(id, title, content, unixtime)
+	//}
+
 	return &Page{Title: title, Content: content}, nil
 }
 
