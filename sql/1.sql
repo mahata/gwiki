@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS `wiki`;
 CREATE TABLE `wiki` (
   `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `title` TEXT NOT NULL,
+  `title` TEXT NOT NULL UNIQUE,
   `content` TEXT NOT NULL,
   `unixtime` BIGINT NOT NULL
 );
