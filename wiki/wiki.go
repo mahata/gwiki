@@ -33,9 +33,9 @@ var validPath = regexp.MustCompile(`^/(edit|save|view|static)/(\S+)$`)
 var config Config
 
 type Page struct {
-	Title string
-	Body  []byte
-	Login bool
+	Title   string
+	Content []byte
+	Login   bool
 }
 
 func isExist(filename string) bool {
@@ -58,13 +58,13 @@ func (p *Page) save() error {
 		}
 	}
 	archiveFilePath := archiveDir + "/" + string(fmt.Sprint(time.Now().Unix()))
-	archiveErr := ioutil.WriteFile(archiveFilePath, p.Body, 0600)
+	archiveErr := ioutil.WriteFile(archiveFilePath, p.Content, 0600)
 	if archiveErr != nil {
 		return archiveErr
 	}
 	filePath := archiveDir + ".txt"
 
-	return ioutil.WriteFile(filePath, p.Body, 0600)
+	return ioutil.WriteFile(filePath, p.Content, 0600)
 }
 
 func loadConf(confFile string) {
@@ -78,11 +78,11 @@ func loadConf(confFile string) {
 
 func loadPage(title string) (*Page, error) {
 	filename := config.TxtDir + "/" + title + ".txt"
-	body, err := ioutil.ReadFile(filename)
+	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return &Page{Title: title, Body: body}, nil
+	return &Page{Title: title, Content: content}, nil
 }
 
 func Run(useNginx bool) {
@@ -119,8 +119,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		p := &Page{
-			Title: "Login Page",
-			Body:  []byte("Login:"),
+			Title:   "Login Page",
+			Content: []byte("Login:"),
 		}
 		renderTemplate(w, "login", p)
 	} else {
@@ -185,8 +185,8 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		p := &Page{
-			Title: "File Posted",
-			Body:  []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
+			Title:   "File Posted",
+			Content: []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
 		}
 		renderTemplate(w, "upload-file", p)
 	}
@@ -213,7 +213,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 		p.Login = cookie.Value == toHash(config.Password)
 	}
 
-	p.Body = blackfriday.MarkdownCommon([]byte(p.Body))
+	p.Content = blackfriday.MarkdownCommon([]byte(p.Content))
 	renderTemplate(w, "view", p)
 }
 
@@ -236,8 +236,8 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
+	content := r.FormValue("content")
+	p := &Page{Title: title, Content: []byte(content)}
 	err := p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

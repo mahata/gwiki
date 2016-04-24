@@ -13,7 +13,7 @@
 {{if .Login}}
 
 <form action="/save/{{.Title}}" method="POST">
-<div><textarea name="body" rows="20" cols="80">{{printf "%s" .Body}}</textarea></div>
+<div><textarea name="content" rows="20" cols="80">{{printf "%s" .Content}}</textarea></div>
 <div><input type="submit" value="Save"></div>
 </form>
 
