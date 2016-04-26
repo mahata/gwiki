@@ -57,6 +57,21 @@ func toHash(password string) string {
 	return hex.EncodeToString(converted[:])
 }
 
+func (p *Page) saveSqlite() error {
+	// FixMe: WIP
+	db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	checkErr(err)
+	stmt, err := db.Prepare("INSERT OR REPLACE INTO wiki (title, content, unixtime) values(?, ?, ?)")
+	checkErr(err)
+	res, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
+	checkErr(err)
+	id, err := res.LastInsertId()
+	checkErr(err)
+	fmt.Println(id)
+
+	return err
+}
+
 func (p *Page) save() error {
 	archiveDir := config.TxtDir + "/" + p.Title
 	if !isExist(archiveDir) {
@@ -72,17 +87,6 @@ func (p *Page) save() error {
 		return archiveErr
 	}
 	filePath := archiveDir + ".txt"
-
-	// FixMe: WIP
-	db, err := sql.Open("sqlite3", "./sample.sqlite3")
-	checkErr(err)
-	stmt, err := db.Prepare("INSERT INTO wiki (title, content, unixtime) values(?, ?, ?)")
-	checkErr(err)
-	res, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
-	checkErr(err)
-	id, err := res.LastInsertId()
-	checkErr(err)
-	fmt.Println(id)
 
 	return ioutil.WriteFile(filePath, p.Content, 0600)
 }
