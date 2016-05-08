@@ -72,24 +72,47 @@ func (p *Page) saveSqlite() error {
 	return err
 }
 
-func (p *Page) save() error {
-	archiveDir := config.TxtDir + "/" + p.Title
-	if !isExist(archiveDir) {
-		err := os.Mkdir(archiveDir, 0700)
-		if err != nil {
-			os.Stderr.WriteString("Failed to create a directory. Is your disk full?")
-			panic(err)
-		}
+func loadSqlite(title string) (*Page, error) {
+	db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	if err != nil {
+		return nil, err
 	}
-	archiveFilePath := archiveDir + "/" + string(fmt.Sprint(time.Now().Unix()))
-	archiveErr := ioutil.WriteFile(archiveFilePath, p.Content, 0600)
-	if archiveErr != nil {
-		return archiveErr
-	}
-	filePath := archiveDir + ".txt"
+	defer db.Close()
 
-	return ioutil.WriteFile(filePath, p.Content, 0600)
+	stmt, err := db.Prepare("SELECT * FROM wiki where title = ?")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var id, unixtime int
+	var _title, content string
+	err = stmt.QueryRow(title).Scan(&id, &_title, &content, &unixtime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Page{Title: title, Content: []byte(content)}, nil
 }
+
+//func (p *Page) save() error {
+//	archiveDir := config.TxtDir + "/" + p.Title
+//	if !isExist(archiveDir) {
+//		err := os.Mkdir(archiveDir, 0700)
+//		if err != nil {
+//			os.Stderr.WriteString("Failed to create a directory. Is your disk full?")
+//			panic(err)
+//		}
+//	}
+//	archiveFilePath := archiveDir + "/" + string(fmt.Sprint(time.Now().Unix()))
+//	archiveErr := ioutil.WriteFile(archiveFilePath, p.Content, 0600)
+//	if archiveErr != nil {
+//		return archiveErr
+//	}
+//	filePath := archiveDir + ".txt"
+//
+//	return ioutil.WriteFile(filePath, p.Content, 0600)
+//}
 
 func loadConf(confFile string) {
 	file, err := ioutil.ReadFile(confFile)
@@ -100,29 +123,15 @@ func loadConf(confFile string) {
 	json.Unmarshal(file, &config)
 }
 
-func loadPage(title string) (*Page, error) {
-	filename := config.TxtDir + "/" + title + ".txt"
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	//db, err := sql.Open("sqlite3", "./sample.sqlite3")
-	//checkErr(err)
-	//
-	//rows, err := db.Query("SELECT * FROM wiki")
-	//checkErr(err)
-	//for rows.Next() {
-	//	var id int
-	//	var title string
-	//	var content string
-	//	var unixtime int
-	//	err = rows.Scan(&id, &title, &content, &unixtime)
-	//	fmt.Println(id, title, content, unixtime)
-	//}
-
-	return &Page{Title: title, Content: content}, nil
-}
+//func loadPage(title string) (*Page, error) {
+//	filename := config.TxtDir + "/" + title + ".txt"
+//	content, err := ioutil.ReadFile(filename)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return &Page{Title: title, Content: content}, nil
+//}
 
 func Run(useNginx bool) {
 	loadConf("config.json")
@@ -239,8 +248,10 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	// p, err := loadPage(title)
+	p, err := loadSqlite(title)
 	if err != nil {
+		fmt.Println(err)
 		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
@@ -257,17 +268,19 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	p, err := loadSqlite(title)
 	if err != nil {
-		// Looks like there's no page to edit
-		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.TxtDir, title), []byte(""), 0600)
-		p, _ = loadPage(title)
+		p := &Page{Title: title, Content: []byte("Edit Me!"), Login: false}
+		p.saveSqlite()
+
+		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 	}
 
 	cookie, err := r.Cookie("login")
 	if err != nil {
 		p.Login = false
 	} else {
+		fmt.Println(&p.Login)
 		p.Login = cookie.Value == toHash(config.Password)
 	}
 
@@ -277,11 +290,21 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	content := r.FormValue("content")
 	p := &Page{Title: title, Content: []byte(content)}
-	err := p.save()
+
+	// This block will be deleted soon
+	//err := p.save()
+	//if err != nil {
+	//	http.Error(w, err.Error(), http.StatusInternalServerError)
+	//	return
+	//}
+
+	// This block will replace the previous one
+	err := p.saveSqlite()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
