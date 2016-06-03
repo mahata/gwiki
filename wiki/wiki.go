@@ -31,14 +31,14 @@ type Config struct {
 }
 
 var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html", "upload-file.html"))
-
 var validPath = regexp.MustCompile(`^/(edit|save|view|static)/(\S+)$`)
 var config Config
 
 type Page struct {
+	Id      int
 	Title   string
 	Content []byte
-	Login   bool
+	Login   bool // FixMe: Login shouldn't be a member of Page struct
 }
 
 func checkErr(err error) {
@@ -47,14 +47,23 @@ func checkErr(err error) {
 	}
 }
 
-func isExist(filename string) bool {
-	_, err := os.Stat(filename)
-	return err == nil
-}
+//func isExist(filename string) bool {
+//	_, err := os.Stat(filename)
+//	return err == nil
+//}
 
 func toHash(password string) string {
 	converted := sha256.Sum256([]byte(password))
 	return hex.EncodeToString(converted[:])
+}
+
+func getPageId(title string) (int, error) {
+	p, err := loadSqlite(title)
+	if err != nil {
+		return -1, err
+	} else {
+		return p.Id, nil // FixMe
+	}
 }
 
 func (p *Page) saveSqlite() error {
@@ -95,25 +104,6 @@ func loadSqlite(title string) (*Page, error) {
 	return &Page{Title: title, Content: []byte(content)}, nil
 }
 
-//func (p *Page) save() error {
-//	archiveDir := config.TxtDir + "/" + p.Title
-//	if !isExist(archiveDir) {
-//		err := os.Mkdir(archiveDir, 0700)
-//		if err != nil {
-//			os.Stderr.WriteString("Failed to create a directory. Is your disk full?")
-//			panic(err)
-//		}
-//	}
-//	archiveFilePath := archiveDir + "/" + string(fmt.Sprint(time.Now().Unix()))
-//	archiveErr := ioutil.WriteFile(archiveFilePath, p.Content, 0600)
-//	if archiveErr != nil {
-//		return archiveErr
-//	}
-//	filePath := archiveDir + ".txt"
-//
-//	return ioutil.WriteFile(filePath, p.Content, 0600)
-//}
-
 func loadConf(confFile string) {
 	file, err := ioutil.ReadFile(confFile)
 	if err != nil {
@@ -122,16 +112,6 @@ func loadConf(confFile string) {
 
 	json.Unmarshal(file, &config)
 }
-
-//func loadPage(title string) (*Page, error) {
-//	filename := config.TxtDir + "/" + title + ".txt"
-//	content, err := ioutil.ReadFile(filename)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return &Page{Title: title, Content: content}, nil
-//}
 
 func Run(useNginx bool) {
 	loadConf("config.json")
@@ -291,14 +271,6 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	content := r.FormValue("content")
 	p := &Page{Title: title, Content: []byte(content)}
 
-	// This block will be deleted soon
-	//err := p.save()
-	//if err != nil {
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
-
-	// This block will replace the previous one
 	err := p.saveSqlite()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
