@@ -41,17 +41,6 @@ type Page struct {
 	Login   bool // FixMe: Login shouldn't be a member of Page struct
 }
 
-func checkErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-//func isExist(filename string) bool {
-//	_, err := os.Stat(filename)
-//	return err == nil
-//}
-
 func toHash(password string) string {
 	converted := sha256.Sum256([]byte(password))
 	return hex.EncodeToString(converted[:])
@@ -67,18 +56,26 @@ func getPageId(title string) (int, error) {
 }
 
 func (p *Page) saveSqlite() error {
-	// FixMe: WIP
 	db, err := sql.Open("sqlite3", "./sample.sqlite3")
-	checkErr(err)
-	stmt, err := db.Prepare("INSERT OR REPLACE INTO wiki (title, content, unixtime) values(?, ?, ?)")
-	checkErr(err)
-	res, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
-	checkErr(err)
-	id, err := res.LastInsertId()
-	checkErr(err)
-	fmt.Println(id)
+	if err != nil {
+		os.Stderr.WriteString("Failed to open SQLite file.")
+	}
 
-	return err
+	pageId, err := getPageId(p.Title)
+	if err != nil {
+		stmt, _ := db.Prepare("INSERT INTO wiki (title, content, unixtime) VALUES (?, ?, ?)")
+		_, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
+		if err != nil {
+			return err
+		}
+	} else {
+		stmt, _ := db.Prepare("UPDATE wiki SET title = ?, content = ?, unixtime = ? WHERE id = ?")
+		_, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())), pageId)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func loadSqlite(title string) (*Page, error) {
