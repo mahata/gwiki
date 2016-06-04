@@ -1,7 +1,9 @@
-FROM mahata/golpine:3.3
+FROM alpine:3.4
 MAINTAINER "Yasunori Mahata" <mahata777+docker@gmail.com>
 
 ENV GOPATH /root/go-workspace
+RUN apk add --no-cache --update go
+RUN apk add --no-cache --update alpine-sdk
 RUN apk add --no-cache --update git
 RUN go get github.com/russross/blackfriday
 RUN go get github.com/mahata/gwiki
