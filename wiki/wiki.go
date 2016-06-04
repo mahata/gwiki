@@ -60,17 +60,29 @@ func (p *Page) saveSqlite() error {
 	if err != nil {
 		os.Stderr.WriteString("Failed to open SQLite file.")
 	}
+	defer db.Close()
 
 	pageId, err := getPageId(p.Title)
 	if err != nil {
 		stmt, _ := db.Prepare("INSERT INTO wiki (title, content, unixtime) VALUES (?, ?, ?)")
+		defer stmt.Close()
+
 		_, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
 		if err != nil {
 			return err
 		}
 	} else {
-		stmt, _ := db.Prepare("UPDATE wiki SET title = ?, content = ?, unixtime = ? WHERE id = ?")
-		_, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())), pageId)
+		stmt, err := db.Prepare("UPDATE wiki SET content = ?, unixtime = ? WHERE id = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		res, err := stmt.Exec(p.Content, string(fmt.Sprint(time.Now().Unix())), pageId)
+		if err != nil {
+			return err
+		}
+		_, err = res.RowsAffected()
 		if err != nil {
 			return err
 		}
@@ -98,7 +110,7 @@ func loadSqlite(title string) (*Page, error) {
 		return nil, err
 	}
 
-	return &Page{Title: title, Content: []byte(content)}, nil
+	return &Page{Id: id, Title: title, Content: []byte(content)}, nil
 }
 
 func loadConf(confFile string) {
