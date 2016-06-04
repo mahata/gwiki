@@ -17,7 +17,10 @@ import (
 
 	"errors"
 
+	"database/sql"
+
 	"github.com/mahata/gwiki/util"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/russross/blackfriday"
 )
 
@@ -28,19 +31,14 @@ type Config struct {
 }
 
 var templates = template.Must(template.ParseFiles("login.html", "edit.html", "view.html", "upload-file.html"))
-
 var validPath = regexp.MustCompile(`^/(edit|save|view|static)/(\S+)$`)
 var config Config
 
 type Page struct {
-	Title string
-	Body  []byte
-	Login bool
-}
-
-func isExist(filename string) bool {
-	_, err := os.Stat(filename)
-	return err == nil
+	Id      int
+	Title   string
+	Content []byte
+	Login   bool // FixMe: Login shouldn't be a member of Page struct
 }
 
 func toHash(password string) string {
@@ -48,23 +46,71 @@ func toHash(password string) string {
 	return hex.EncodeToString(converted[:])
 }
 
-func (p *Page) save() error {
-	archiveDir := config.TxtDir + "/" + p.Title
-	if !isExist(archiveDir) {
-		err := os.Mkdir(archiveDir, 0700)
+func getPageId(title string) (int, error) {
+	p, err := loadSqlite(title)
+	if err != nil {
+		return -1, err
+	} else {
+		return p.Id, nil // FixMe
+	}
+}
+
+func (p *Page) saveSqlite() error {
+	db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	if err != nil {
+		os.Stderr.WriteString("Failed to open SQLite file.")
+	}
+	defer db.Close()
+
+	pageId, err := getPageId(p.Title)
+	if err != nil {
+		stmt, _ := db.Prepare("INSERT INTO wiki (title, content, unixtime) VALUES (?, ?, ?)")
+		defer stmt.Close()
+
+		_, err := stmt.Exec(p.Title, p.Content, string(fmt.Sprint(time.Now().Unix())))
 		if err != nil {
-			os.Stderr.WriteString("Failed to create a directory. Is your disk full?")
-			panic(err)
+			return err
+		}
+	} else {
+		stmt, err := db.Prepare("UPDATE wiki SET content = ?, unixtime = ? WHERE id = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		res, err := stmt.Exec(p.Content, string(fmt.Sprint(time.Now().Unix())), pageId)
+		if err != nil {
+			return err
+		}
+		_, err = res.RowsAffected()
+		if err != nil {
+			return err
 		}
 	}
-	archiveFilePath := archiveDir + "/" + string(fmt.Sprint(time.Now().Unix()))
-	archiveErr := ioutil.WriteFile(archiveFilePath, p.Body, 0600)
-	if archiveErr != nil {
-		return archiveErr
-	}
-	filePath := archiveDir + ".txt"
+	return nil
+}
 
-	return ioutil.WriteFile(filePath, p.Body, 0600)
+func loadSqlite(title string) (*Page, error) {
+	db, err := sql.Open("sqlite3", "./sample.sqlite3")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare("SELECT * FROM wiki where title = ?")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var id, unixtime int
+	var _title, content string
+	err = stmt.QueryRow(title).Scan(&id, &_title, &content, &unixtime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Page{Id: id, Title: title, Content: []byte(content)}, nil
 }
 
 func loadConf(confFile string) {
@@ -74,15 +120,6 @@ func loadConf(confFile string) {
 	}
 
 	json.Unmarshal(file, &config)
-}
-
-func loadPage(title string) (*Page, error) {
-	filename := config.TxtDir + "/" + title + ".txt"
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
 }
 
 func Run(useNginx bool) {
@@ -119,8 +156,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		p := &Page{
-			Title: "Login Page",
-			Body:  []byte("Login:"),
+			Title:   "Login Page",
+			Content: []byte("Login:"),
 		}
 		renderTemplate(w, "login", p)
 	} else {
@@ -185,8 +222,8 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		p := &Page{
-			Title: "File Posted",
-			Body:  []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
+			Title:   "File Posted",
+			Content: []byte(fmt.Sprintf("![AltText](/static/%s \"TitleText\")", uploadFileName)),
 		}
 		renderTemplate(w, "upload-file", p)
 	}
@@ -200,8 +237,10 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	// p, err := loadPage(title)
+	p, err := loadSqlite(title)
 	if err != nil {
+		fmt.Println(err)
 		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
@@ -213,22 +252,24 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 		p.Login = cookie.Value == toHash(config.Password)
 	}
 
-	p.Body = blackfriday.MarkdownCommon([]byte(p.Body))
+	p.Content = blackfriday.MarkdownCommon([]byte(p.Content))
 	renderTemplate(w, "view", p)
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	p, err := loadSqlite(title)
 	if err != nil {
-		// Looks like there's no page to edit
-		ioutil.WriteFile(fmt.Sprintf("%s/%s.txt", config.TxtDir, title), []byte(""), 0600)
-		p, _ = loadPage(title)
+		p := &Page{Title: title, Content: []byte("Edit Me!"), Login: false}
+		p.saveSqlite()
+
+		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 	}
 
 	cookie, err := r.Cookie("login")
 	if err != nil {
 		p.Login = false
 	} else {
+		fmt.Println(&p.Login)
 		p.Login = cookie.Value == toHash(config.Password)
 	}
 
@@ -236,13 +277,15 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	err := p.save()
+	content := r.FormValue("content")
+	p := &Page{Title: title, Content: []byte(content)}
+
+	err := p.saveSqlite()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
