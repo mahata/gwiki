@@ -23,3 +23,17 @@ $ docker build -t mahata/gwiki:0.x .
 $ docker push mahata/gwiki:0.x
 ```
 
+## Dev Workflow
+
+Provided you already have [Goemon](https://github.com/mattn/goemon):
+
+```
+$ go build
+$ goemon ./gwiki
+```
+
+If you get `too many open files` error, you'll probably need to increase `ulimit`. For example:
+
+```
+$ ulimit -n 2048
+```
