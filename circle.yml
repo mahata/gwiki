@@ -2,8 +2,8 @@ machine:
     timezone:
         Asia/Tokyo
     environment:
-        PROJECT_HOME: "$HOME/$CIRCLE_PROJECT_REPONAME"
         GOPATH: "$HOME/go-workspace"
+        PROJECT_HOME: "$GOPATH/src/github.com/mahata/$CIRCLE_PROJECT_REPONAME"
     services:
         - docker
 
