@@ -3,8 +3,7 @@ machine:
         Asia/Tokyo
     environment:
         PROJECT_HOME: "$HOME/$CIRCLE_PROJECT_REPONAME"
-        # GOPATH: "$HOME/.go_workspace"
-        GOPATH: "/root/go-workspace"
+        GOPATH: "$HOME/go-workspace"
     services:
         - docker
 
