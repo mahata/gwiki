@@ -8,7 +8,8 @@ RUN apk add --no-cache --update git
 RUN go get github.com/russross/blackfriday
 RUN go get github.com/mahata/gwiki
 
-COPY config.json /root/go-workspace/src/github.com/mahata/gwiki/config.json
+COPY config.json.tpl /root/go-workspace/src/github.com/mahata/gwiki/config.json
+# FixMe: Modify config.json
 
 RUN mkdir -p /usr/local/gwiki/data/img
 RUN mkdir -p /usr/local/gwiki/data/txt
