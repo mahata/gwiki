@@ -9,7 +9,11 @@ machine:
 
 dependencies:
     pre:
+        - mkdir -p $GOPATH/src/github.com/mahata
+        - cp -r $HOME/$CIRCLE_PROJECT_REPONAME $PROJECT_HOME
+
         - go get github.com/russross/blackfriday
+        - go get github.com/mattn/go-sqlite3
     override:
         - docker info
         - docker build -t mahata/gwiki:latest .
